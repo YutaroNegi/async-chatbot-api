@@ -7,11 +7,15 @@ load_dotenv()
 COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
 COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")
 COGNITO_APP_CLIENT_SECRET = os.getenv("COGNITO_APP_CLIENT_SECRET")
+COGNITO_KEYS_URL = f"https://cognito-idp.us-east-1.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
+COGNITO_ISSUER = f"https://cognito-idp.us-east-1.amazonaws.com/{COGNITO_USER_POOL_ID}"
 
 required_vars = [
     "COGNITO_USER_POOL_ID",
     "COGNITO_APP_CLIENT_ID",
     "COGNITO_APP_CLIENT_SECRET",
+    "COGNITO_KEYS_URL",
+    "COGNITO_ISSUER",
 ]
 
 for var in required_vars:
