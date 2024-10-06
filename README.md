@@ -2,7 +2,12 @@
 
 ## 📄 Description
 
-This project sets up the initial structure of a chatbot application using **FastAPI** for the backend. It currently includes a health check route (`/health`) to monitor the application's status. This setup serves as a foundation for developing additional chatbot functionalities such as sending, editing, and deleting messages.
+This project sets up the initial structure of a chatbot application using **FastAPI** for the backend. It currently includes:
+
+- A health check route (`/health`) to monitor the application's status.
+- **User Registration Endpoint** (`/users/register`) to allow users to create accounts.
+
+This setup serves as a foundation for developing additional chatbot functionalities such as sending, editing, and deleting messages.
 
 ## 🚀 Technologies Used
 
@@ -11,6 +16,8 @@ This project sets up the initial structure of a chatbot application using **Fast
   - FastAPI
   - Uvicorn
   - Pytest
+  - boto3
+  - python-dotenv
 
 - **Containerization:**
   - Docker
@@ -31,23 +38,26 @@ async-chatbot-api/
 │   ├── main.py
 │   ├── routers/
 │   │   ├── __init__.py
-│   │   └── health.py
+│   │   ├── health.py
+│   │   └── users.py
 ├── tests/
 │   ├── __init__.py
-│   └── test_health.py
+│   ├── test_health.py
+│   └── test_users.py
 ├── .pre-commit-config.yaml
 ├── requirements.txt
 ├── Dockerfile
 └── .gitignore
 ```
 
-- **app/main.py**: Entry point of the FastAPI application.
+- **app/main.py**: Entry point of the FastAPI application with logging configuration.
+- **app/routers/users.py**: Contains the user registration endpoint.
 - **app/routers/health.py**: Defines the `/health` route for health checks.
-- **tests/test_health.py**: Tests for the health check route.
-- **.pre-commit-config.yaml**: Configuration file for pre-commit hooks.
+- **tests/test_users.py**: Unit tests for the user registration endpoint.
 - **requirements.txt**: Project dependencies.
 - **Dockerfile**: Configuration for containerizing the application.
 - **.gitignore**: Files and directories to be ignored by Git.
+- **.pre-commit-config.yaml**: Configuration file for pre-commit hooks.
 
 ## 🛠️ How to Run the Application Locally
 
@@ -72,7 +82,23 @@ venv\Scripts\activate     # For Windows
 pip install -r requirements.txt
 ```
 
-### 4. Set Up Pre-Commit Hooks
+### 4. Configure Environment Variables
+
+The application uses environment variables to manage sensitive configurations such as AWS Cognito settings. During development, these can be set using a `.env` file.
+
+#### 4.1. Create a `.env` File
+
+Create a `.env` file in the root directory with the following content:
+
+```env
+COGNITO_USER_POOL_ID=your_user_pool_id
+COGNITO_APP_CLIENT_ID=your_app_client_id
+```
+
+**Note:** Replace `your_user_pool_id`  and `your_app_client_id` with your actual AWS Cognito configurations.
+
+
+### 5. Set Up Pre-Commit Hooks
 
 Ensure that **pre-commit** is installed and configured to run automatically before commits.
 
@@ -80,13 +106,34 @@ Ensure that **pre-commit** is installed and configured to run automatically befo
 pre-commit install
 ```
 
-### 5. Run the Application
+### 6. Run the Application
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
 The application will be available at [http://localhost:8000](http://localhost:8000).
+
+### 7. Testing User Registration
+
+- **User Registration:**
+  - **Endpoint:** `POST /users/register`
+  - **Payload:**
+    ```json
+    {
+      "email": "newuser@example.com",
+      "password": "Password123"
+    }
+    ```
+  - **Response:**
+    ```json
+    {
+      "message": "User created successfully"
+    }
+    ```
+  - **Password Policy:**
+    - Must be at least 8 characters long.
+    - Must contain at least one number.
 
 ## 🧪 Running Tests
 
@@ -130,16 +177,15 @@ black app/ tests/
 
 [pre-commit](https://pre-commit.com/) is used to automatically run linting and formatting checks before each commit, ensuring code quality and consistency.
 
+#### Installation
 
-2. **Install the Git hooks:**
-
-   ```bash
-   pre-commit install
-   ```
+```bash
+pre-commit install
+```
 
 #### Usage
 
-pre-commit hooks run automatically on `git commit`. To manually run all hooks against all files:
+Pre-commit hooks run automatically on `git commit`. To manually run all hooks against all files:
 
 ```bash
 pre-commit run --all-files
@@ -147,6 +193,7 @@ pre-commit run --all-files
 
 ## 🔧 Next Steps
 
+- **Authentication:** Implement authentication mechanisms to protect routes.
 - **Frontend:** Implement the user interface using **React** and **TypeScript**.
 - **Chatbot Features:**
   - Send messages
