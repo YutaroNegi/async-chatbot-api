@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr, field_validator
 import os
 import boto3
+import base64
+import hmac
+import hashlib
 from botocore.exceptions import ClientError
 import re
 import logging
@@ -27,14 +30,38 @@ class UserCreate(BaseModel):
         return v
 
 
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
 cognito_client = boto3.client("cognito-idp")
 USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
+CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")
+CLIENT_SECRET = os.getenv("COGNITO_APP_CLIENT_SECRET")
+
+
+def get_secret_hash(username: str) -> str:
+    """
+    Generates the SECRET_HASH required for AWS Cognito authentication.
+
+    Args:
+        username (str): The username (email) of the user.
+
+    Returns:
+        str: The computed SECRET_HASH.
+    """
+    message = username + CLIENT_ID
+    dig = hmac.new(
+        CLIENT_SECRET.encode("utf-8"),
+        msg=message.encode("utf-8"),
+        digestmod=hashlib.sha256,
+    ).digest()
+    return base64.b64encode(dig).decode()
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(user: UserCreate):
-    logger.info(f"Using user pool ID: {USER_POOL_ID}")
-
     logger.info(f"Registration attempt for email: {user.email}")
     try:
         _ = cognito_client.admin_create_user(
@@ -84,6 +111,54 @@ async def register_user(user: UserCreate):
         logger.exception(
             f"Unexpected error during registration for {user.email}: {str(e)}"
         )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        )
+
+
+@router.post("/login", status_code=status.HTTP_200_OK)
+async def login_user(user: UserLogin):
+    logger.info(f"Login attempt for email: {user.email}")
+    secret_hash = get_secret_hash(user.email)
+    try:
+        response = cognito_client.initiate_auth(
+            ClientId=os.getenv("COGNITO_APP_CLIENT_ID"),
+            AuthFlow="USER_PASSWORD_AUTH",
+            AuthParameters={
+                "USERNAME": user.email,
+                "PASSWORD": user.password,
+                "SECRET_HASH": secret_hash,
+            },
+        )
+        logger.info(f"User {user.email} authenticated successfully.")
+
+        return {
+            "access_token": response["AuthenticationResult"]["AccessToken"],
+            "id_token": response["AuthenticationResult"]["IdToken"],
+            "refresh_token": response["AuthenticationResult"]["RefreshToken"],
+            "token_type": response["AuthenticationResult"]["TokenType"],
+            "expires_in": response["AuthenticationResult"]["ExpiresIn"],
+        }
+
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        logger.error(
+            f"Error authenticating user {user.email}: {e.response['Error']['Message']}"
+        )
+
+        if error_code in ["NotAuthorizedException", "UserNotFoundException"]:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error",
+            )
+    except Exception as e:
+        logger.exception(f"Unexpected error during login for {user.email}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
