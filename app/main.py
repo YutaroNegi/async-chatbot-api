@@ -1,6 +1,10 @@
 import logging
 from fastapi import FastAPI
+from dotenv import load_dotenv
+
+load_dotenv()
 from app.routers import health
+
 
 logging.basicConfig(
     level=logging.INFO,
