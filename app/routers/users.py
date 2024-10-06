@@ -80,7 +80,7 @@ async def register_user(user: UserCreate):
 @router.post("/login", status_code=status.HTTP_200_OK)
 async def login_user(user: UserLogin):
     logger.info(f"Login attempt for email: {user.email}")
-    secret_hash = get_secret_hash(user.email)
+    secret_hash = get_secret_hash(user.email, CLIENT_ID, CLIENT_SECRET)
     try:
         response = cognito_client.initiate_auth(
             ClientId=os.getenv("COGNITO_APP_CLIENT_ID"),
