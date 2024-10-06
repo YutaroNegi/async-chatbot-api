@@ -8,6 +8,7 @@ import hashlib
 from botocore.exceptions import ClientError
 import re
 import logging
+from app import config
 
 router = APIRouter(
     prefix="/users",
@@ -36,9 +37,9 @@ class UserLogin(BaseModel):
 
 
 cognito_client = boto3.client("cognito-idp")
-USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
-CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")
-CLIENT_SECRET = os.getenv("COGNITO_APP_CLIENT_SECRET")
+USER_POOL_ID = config.COGNITO_USER_POOL_ID
+CLIENT_ID = config.COGNITO_APP_CLIENT_ID
+CLIENT_SECRET = config.COGNITO_APP_CLIENT_SECRET
 
 
 def get_secret_hash(username: str) -> str:
