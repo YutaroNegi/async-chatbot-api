@@ -12,6 +12,14 @@ existing_user = {"email": "existinguser@example.com", "password": "Password123"}
 
 invalid_password_user = {"email": "newuser@example.com", "password": "pass"}
 
+valid_login = {"email": "testuser@example.com", "password": "Password123"}
+
+invalid_password_login = {"email": "testuser@example.com", "password": "wrongpassword"}
+
+nonexistent_user_login = {"email": "nonexistent@example.com", "password": "Password123"}
+
+invalid_email_login = {"email": "invalidemail", "password": "Password123"}
+
 
 @patch("app.routers.users.cognito_client")
 def test_register_user_success(mock_cognito_client):
@@ -49,4 +57,38 @@ def test_register_user_invalid_password():
 def test_register_user_invalid_email():
     invalid_email_user = {"email": "invalidemail", "password": "Password123"}
     response = client.post("/users/register", json=invalid_email_user)
+    assert response.status_code == 422
+
+
+@patch("app.routers.users.cognito_client")
+def test_login_user_invalid_password(mock_cognito_client):
+    mock_cognito_client.initiate_auth.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "NotAuthorizedException",
+                "Message": "Incorrect username or password.",
+            }
+        },
+        "InitiateAuth",
+    )
+
+    response = client.post("/users/login", json=invalid_password_login)
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"
+
+
+@patch("app.routers.users.cognito_client")
+def test_login_user_nonexistent_user(mock_cognito_client):
+    mock_cognito_client.initiate_auth.side_effect = ClientError(
+        {"Error": {"Code": "UserNotFoundException", "Message": "User does not exist."}},
+        "InitiateAuth",
+    )
+
+    response = client.post("/users/login", json=nonexistent_user_login)
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"
+
+
+def test_login_user_invalid_email():
+    response = client.post("/users/login", json=invalid_email_login)
     assert response.status_code == 422
