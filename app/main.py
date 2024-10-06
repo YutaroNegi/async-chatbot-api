@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from dotenv import load_dotenv
 
 load_dotenv()
-from app.routers import health
+from app.routers import health, users
 
 
 logging.basicConfig(
@@ -24,3 +24,4 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(health.router)
+app.include_router(users.router)
