@@ -1,13 +1,9 @@
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, EmailStr, field_validator
 from app.models.users import UserCreate, UserLogin
+from app.utils.auth import get_secret_hash
 import os
 import boto3
-import base64
-import hmac
-import hashlib
 from botocore.exceptions import ClientError
-import re
 import logging
 from app import config
 
@@ -22,25 +18,6 @@ cognito_client = boto3.client("cognito-idp")
 USER_POOL_ID = config.COGNITO_USER_POOL_ID
 CLIENT_ID = config.COGNITO_APP_CLIENT_ID
 CLIENT_SECRET = config.COGNITO_APP_CLIENT_SECRET
-
-
-def get_secret_hash(username: str) -> str:
-    """
-    Generates the SECRET_HASH required for AWS Cognito authentication.
-
-    Args:
-        username (str): The username (email) of the user.
-
-    Returns:
-        str: The computed SECRET_HASH.
-    """
-    message = username + CLIENT_ID
-    dig = hmac.new(
-        CLIENT_SECRET.encode("utf-8"),
-        msg=message.encode("utf-8"),
-        digestmod=hashlib.sha256,
-    ).digest()
-    return base64.b64encode(dig).decode()
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
