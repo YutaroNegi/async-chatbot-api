@@ -5,3 +5,4 @@ black
 pre-commit
 boto3
 email-validator
+python-dotenv
