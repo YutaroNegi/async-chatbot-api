@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr, field_validator
+from app.models.users import UserCreate, UserLogin
 import os
 import boto3
 import base64
@@ -16,25 +17,6 @@ router = APIRouter(
 )
 
 logger = logging.getLogger("app.routers.users")
-
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-
-    @field_validator("password")
-    def password_policy(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters long")
-        if not re.search(r"\d", v):
-            raise ValueError("Password must contain at least one number")
-        return v
-
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
 
 cognito_client = boto3.client("cognito-idp")
 USER_POOL_ID = config.COGNITO_USER_POOL_ID
