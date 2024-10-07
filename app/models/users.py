@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
 import re
+from typing import Optional
 
 
 class UserCreate(BaseModel):
@@ -18,3 +19,18 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class User(BaseModel):
+    sub: str
+    iss: str
+    client_id: str
+    origin_jti: Optional[str] = None
+    event_id: Optional[str] = None
+    token_use: str
+    scope: Optional[str] = None
+    auth_time: Optional[int] = None
+    exp: int
+    iat: int
+    jti: str
+    username: str
