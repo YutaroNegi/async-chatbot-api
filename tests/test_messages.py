@@ -69,3 +69,25 @@ def test_list_messages():
     assert len(data["messages"]) == 2
     assert data["messages"][0]["id_message"] == "message1"
     assert data["messages"][1]["id_message"] == "message2"
+
+
+def test_send_message():
+    mock_dynamodb_table.put_item.return_value = {}
+
+    with patch(
+        "app.routers.messages.generate_bot_response"
+    ) as mock_generate_bot_response:
+        mock_generate_bot_response.return_value = "This is a bot response."
+
+        payload = {"content": "Hello, chatbot!"}
+        response = client.post(
+            "/messages/",
+            headers={"Authorization": "Bearer valid_token"},
+            json=payload,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "user_message" in data
+        assert "bot_response" in data
+        assert data["user_message"]["content"] == payload["content"]
+        assert data["bot_response"]["content"] == "This is a bot response."
