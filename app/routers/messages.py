@@ -32,12 +32,10 @@ class Message(BaseModel):
 async def send_message(
     message: Message, current_user: User = Depends(get_current_user)
 ):
-    # Generate unique message ID
     id_message = str(uuid.uuid4())
     timestamp = datetime.now().isoformat()
     id_user = current_user.sub
 
-    # Store the user's message in DynamoDB
     user_message_item = {
         "id_message": id_message,
         "id_user": id_user,
@@ -53,7 +51,6 @@ async def send_message(
         logger.error(f"Error storing user message: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-    # Generate bot response
     bot_response_content = generate_bot_response(message.content)
     bot_id_message = str(uuid.uuid4())
     bot_timestamp = datetime.utcnow().isoformat()
@@ -73,17 +70,41 @@ async def send_message(
         logger.error(f"Error storing bot message: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-    # Return both messages
     return {
         "user_message": user_message_item,
         "bot_response": bot_message_item,
     }
 
 
-@router.put("/{message_id}")
-async def edit_message(message_id: int, new_content: str):
-    # Implement message editing logic here
-    return {"message_id": message_id, "new_content": new_content}
+@router.put("/{id_message}")
+async def edit_message(
+    id_message: str, edit: Message, current_user: User = Depends(get_current_user)
+):
+    try:
+        response = messages_table.get_item(
+            Key={"id_message": id_message, "id_user": current_user.sub}
+        )
+        item = response.get("Item", {})
+        if not item:
+            raise HTTPException(status_code=404, detail="Message not found")
+        if item["id_user"] != current_user.sub:
+            raise HTTPException(
+                status_code=403, detail="Not authorized to edit this message"
+            )
+        if item.get("is_bot", False):
+            raise HTTPException(status_code=400, detail="Cannot edit bot messages")
+
+        messages_table.update_item(
+            Key={"id_message": id_message, "id_user": current_user.sub},
+            UpdateExpression="SET content = :val1",
+            ExpressionAttributeValues={":val1": edit.content},
+        )
+        logger.info(f"Message {id_message} edited by user {current_user.username}")
+
+        return {"id_message": id_message, "content": edit.content}
+    except Exception as e:
+        logger.error(f"Error editing message {id_message}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @router.delete("/{message_id}")
