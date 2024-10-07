@@ -107,7 +107,29 @@ async def edit_message(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@router.delete("/{message_id}")
-async def delete_message(message_id: int):
-    # Implement message deletion logic here
-    return {"message_id": message_id, "status": "deleted"}
+@router.delete("/{id_message}")
+async def delete_message(
+    id_message: str, current_user: User = Depends(get_current_user)
+):
+    try:
+        id_user = current_user.sub
+        response = messages_table.get_item(
+            Key={"id_message": id_message, "id_user": id_user}
+        )
+        item = response.get("Item", {})
+        if not item:
+            raise HTTPException(status_code=404, detail="Message not found")
+        if item["id_user"] != id_user:
+            raise HTTPException(
+                status_code=403, detail="Not authorized to delete this message"
+            )
+        if item.get("is_bot", False):
+            raise HTTPException(status_code=400, detail="Cannot delete bot messages")
+
+        messages_table.delete_item(Key={"id_message": id_message, "id_user": id_user})
+        logger.info(f"Message {id_message} deleted by user {current_user.username}")
+
+        return {"id_message": id_message, "status": "deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting message {id_message}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
