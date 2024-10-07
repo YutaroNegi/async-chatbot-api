@@ -7,7 +7,11 @@ This project sets up the initial structure of a chatbot application using **Fast
 - A health check route (`/health`) to monitor the application's status.
 - **User Registration Endpoint** (`/users/register`) to allow users to create accounts.
 - **User Login Endpoint** (`/users/login`) to enable users to authenticate and receive authentication tokens.
-- **Protected `/messages` Endpoints** (`/messages`) to manage chatbot messages, accessible only to authenticated users.
+- **Protected `/messages` Endpoints** (`/messages`) to manage chatbot messages, accessible only to authenticated users. These endpoints allow users to:
+  - **List Messages** (`GET /messages/`): Retrieve a list of messages sent and received.
+  - **Send a Message** (`POST /messages/`): Send a new message to the chatbot.
+  - **Edit a Message** (`PUT /messages/{id_message}`): Edit an existing user message.
+  - **Delete a Message** (`DELETE /messages/{id_message}`): Delete a user message.
 
 Additionally, the project has been refactored to enhance maintainability and scalability by:
 
@@ -16,7 +20,7 @@ Additionally, the project has been refactored to enhance maintainability and sca
 - **Organizing Utility Functions** within the `utils` directory.
 - **Implementing Comprehensive Logging** within the authentication process for better monitoring and debugging.
 
-This setup serves as a foundation for developing additional chatbot functionalities such as sending, editing, and deleting messages.
+This setup serves as a foundation for developing additional chatbot functionalities such as sending, editing, and deleting messages, as well as integrating more advanced chatbot logic.
 
 ## 🚀 Technologies Used
 
@@ -50,12 +54,13 @@ async-chatbot-api/
 │   ├── main.py
 │   ├── models/
 │   │   ├── __init__.py
-│   │   └── user.py
+│   │   ├── messages.py
+│   │   └── users.py
 │   ├── routers/
 │   │   ├── __init__.py
 │   │   ├── health.py
-│   │   ├── users.py
-│   │   └── messages.py
+│   │   ├── messages.py
+│   │   └── users.py
 │   └── utils/
 │       ├── __init__.py
 │       └── auth.py
@@ -63,7 +68,8 @@ async-chatbot-api/
 │   ├── __init__.py
 │   ├── test_auth.py
 │   ├── test_health.py
-│   ├── test_users.py
+│   ├── test_messages.py
+│   └── test_users.py
 ├── .pre-commit-config.yaml
 ├── requirements.txt
 ├── Dockerfile
@@ -72,12 +78,14 @@ async-chatbot-api/
 
 - **app/config.py**: Centralized configuration module loading environment variables.
 - **app/main.py**: Entry point of the FastAPI application with logging configuration.
-- **app/models/user.py**: Contains Pydantic models for user registration and login.
+- **app/models/users.py**: Contains Pydantic models for user registration and login.
+- **app/models/messages.py**: Contains Pydantic models for message management.
 - **app/routers/users.py**: Defines the user registration and login endpoints.
-- **app/routers/messages.py**: Defines protected endpoints for managing chatbot messages.
+- **app/routers/messages.py**: Defines protected endpoints for managing chatbot messages (list, send, edit, delete).
 - **app/routers/health.py**: Defines the `/health` route for health checks.
 - **app/utils/auth.py**: Contains utility functions, including `get_secret_hash` for AWS Cognito and authentication dependencies.
 - **tests/test_users.py**: Unit tests for user registration and login endpoints.
+- **tests/test_messages.py**: Unit tests for message management endpoints.
 - **requirements.txt**: Project dependencies.
 - **Dockerfile**: Configuration for containerizing the application.
 - **.gitignore**: Files and directories to be ignored by Git.
@@ -118,9 +126,13 @@ Create a `.env` file in the root directory with the following content:
 COGNITO_USER_POOL_ID=your_user_pool_id
 COGNITO_APP_CLIENT_ID=your_app_client_id
 COGNITO_APP_CLIENT_SECRET=your_app_client_secret
+COGNITO_ISSUER=https://cognito-idp.<region>.amazonaws.com/<user_pool_id>
+DYNAMO_MESSAGES_TABLE=Messages
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key_id
+AWS_SECRET_ACCESS_KEY=your_secret_access_key
 ```
 
-**Note:** Replace `your_user_pool_id`, `your_app_client_id`, and `your_app_client_secret` with your actual AWS Cognito configurations. Also, ensure that the `COGNITO_ISSUER` matches your Cognito User Pool's issuer URL.
 
 #### 4.2. Secure the `.env` File
 
@@ -142,7 +154,7 @@ uvicorn app.main:app --reload
 
 The application will be available at [http://localhost:8000](http://localhost:8000).
 
-### 7. Testing User Registration and Login
+### 7. Testing User Registration, Login, and Message Management
 
 - **User Registration:**
   - **Endpoint:** `POST /users/register`
@@ -183,6 +195,91 @@ The application will be available at [http://localhost:8000](http://localhost:80
     }
     ```
 
+- **List Messages:**
+  - **Endpoint:** `GET /messages/`
+  - **Headers:** `Authorization: Bearer <access_token>`
+  - **Query Parameters:**
+    - `limit` (optional): Max number of messages to return (default 50, max 100).
+    - `last_evaluated_key` (optional): Key for pagination.
+  - **Response:**
+    ```json
+    {
+      "messages": [
+        {
+          "id_message": "aee86f6d-26e0-4b77-a8be-44829d0e6e04",
+          "id_user": "test-user-id",
+          "content": "Hello!",
+          "timestamp": "2024-10-07T07:33:21.023112",
+          "is_bot": false
+        },
+        {
+          "id_message": "31101aad-c65f-41b4-8210-a27649aaa124",
+          "id_user": "test-user-id",
+          "content": "Hi there!",
+          "timestamp": "2024-10-07T07:35:21.023112",
+          "is_bot": true
+        }
+        // ... other messages ...
+      ]
+    }
+    ```
+
+- **Send a Message:**
+  - **Endpoint:** `POST /messages/`
+  - **Headers:** `Authorization: Bearer <access_token>`
+  - **Payload:**
+    ```json
+    {
+      "content": "Hello, chatbot!"
+    }
+    ```
+  - **Response:**
+    ```json
+    {
+      "user_message": {
+        "id_message": "aee86f6d-26e0-4b77-a8be-44829d0e6e04",
+        "id_user": "test-user-id",
+        "content": "Hello, chatbot!",
+        "timestamp": "2024-10-07T07:33:21.023112",
+        "is_bot": false
+      },
+      "bot_response": {
+        "id_message": "31101aad-c65f-41b4-8210-a27649aaa124",
+        "id_user": "test-user-id",
+        "content": "This is a bot response.",
+        "timestamp": "2024-10-07T07:35:21.023112",
+        "is_bot": true
+      }
+    }
+    ```
+
+- **Edit a Message:**
+  - **Endpoint:** `PUT /messages/{id_message}`
+  - **Headers:** `Authorization: Bearer <access_token>`
+  - **Payload:**
+    ```json
+    {
+      "content": "Updated message content."
+    }
+    ```
+  - **Response:**
+    ```json
+    {
+      "id_message": "aee86f6d-26e0-4b77-a8be-44829d0e6e04",
+      "content": "Updated message content."
+    }
+    ```
+
+- **Delete a Message:**
+  - **Endpoint:** `DELETE /messages/{id_message}`
+  - **Headers:** `Authorization: Bearer <access_token>`
+  - **Response:**
+    ```json
+    {
+      "id_message": "aee86f6d-26e0-4b77-a8be-44829d0e6e04",
+      "status": "deleted"
+    }
+    ```
 
 ## 🧪 Running Tests
 
@@ -193,6 +290,24 @@ pytest tests/
 ```
 
 This command will execute all unit tests for user registration, login, and protected message routes, ensuring the reliability of authentication and authorization mechanisms.
+
+### 📌 **Test Coverage**
+
+- **Authentication Tests:**
+  - Accessing protected routes without a token.
+  - Accessing protected routes with an invalid token.
+
+- **User Tests:**
+  - Registering a new user.
+  - Logging in with valid credentials.
+  - Logging in with invalid credentials.
+
+- **Message Tests:**
+  - Listing messages for an authenticated user.
+  - Sending a new message.
+  - Editing an existing message.
+  - Deleting a message.
+
 
 ## 🐳 Containerization with Docker
 
@@ -205,10 +320,11 @@ docker build -t async-chatbot-api .
 ### 2. Run the Docker Container
 
 ```bash
-docker run -d --name async-chatbot-api-container -p 8000:8000 async-chatbot-api
+docker run -d --name async-chatbot-api-container -p 8000:8000 --env-file .env async-chatbot-api
 ```
 
 The application will be accessible at [http://localhost:8000](http://localhost:8000).
+
 
 ## 📑 Code Formatting and Linting
 
@@ -242,6 +358,83 @@ Pre-commit hooks run automatically on `git commit`. To manually run all hooks ag
 pre-commit run --all-files
 ```
 
+
+## 🛠️ Running Tests with Mocks
+
+The tests utilize **pytest** and **FastAPI's TestClient** along with **unittest.mock** to simulate interactions with DynamoDB and the authentication process. This ensures that tests are isolated, fast, and do not depend on external services.
+
+### 1. Install Test Dependencies
+
+Ensure that **pytest** and **unittest.mock** are installed. These should already be included in your `requirements.txt`, but verify:
+
+```bash
+pip install pytest
+```
+
+### 2. Run the Tests
+
+Execute all tests within the `tests/` directory:
+
+```bash
+pytest tests/
+```
+
+## 🐳 Containerization with Docker
+
+### 1. Build the Docker Image
+
+```bash
+docker build -t async-chatbot-api .
+```
+
+### 2. Run the Docker Container
+
+```bash
+docker run -d --name async-chatbot-api-container -p 8000:8000 --env-file .env async-chatbot-api
+```
+
+The application will be accessible at [http://localhost:8000](http://localhost:8000).
+
+
+## 📑 Code Formatting and Linting
+
+### Code Formatting with Black
+
+This project uses [Black](https://github.com/psf/black) to ensure consistent code style.
+
+#### Usage
+
+Format all Python code in the project:
+
+```bash
+black app/ tests/
+```
+
+### Pre-Commit Hooks
+
+[pre-commit](https://pre-commit.com/) is used to automatically run linting and formatting checks before each commit, ensuring code quality and consistency.
+
+#### Installation
+
+```bash
+pre-commit install
+```
+
+#### Usage
+
+Pre-commit hooks run automatically on `git commit`. To manually run all hooks against all files:
+
+```bash
+pre-commit run --all-files
+```
+
+## 📝 **Notes**
+
+- **Development Environment:** It's recommended to use a virtual environment to isolate project dependencies.
+- **Docker:** Ensure Docker is installed on your machine to utilize containerization features.
+- **Endpoint Testing:** Use tools like **Postman** or **cURL** to test API endpoints.
+- **Security:** Never commit sensitive information such as AWS credentials or Cognito secrets. Always use environment variables and ensure `.env` is listed in `.gitignore`.
+
 ## 🔧 Next Steps
 
 - **Frontend:** Implement the user interface using **React** and **TypeScript**.
@@ -253,11 +446,3 @@ pre-commit run --all-files
 - **Data Persistence:** Add a persistence layer (e.g., database) to store messages.
 - **Automated Testing:** Add more tests to cover new functionalities.
 - **Deployment:** Configure continuous deployment using platforms like AWS Elastic Beanstalk.
-
----
-
-### 📌 Additional Notes
-
-- **Development Environment:** It's recommended to use a virtual environment to isolate project dependencies.
-- **Docker:** Ensure Docker is installed on your machine to utilize containerization features.
-- **Endpoint Testing:** Use tools like **Postman** or **cURL** to test API endpoints.
