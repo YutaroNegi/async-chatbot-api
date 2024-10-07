@@ -93,6 +93,34 @@ def test_send_message():
         assert data["bot_response"]["content"] == "This is a bot response."
 
 
+def test_edit_message():
+    message_id = "message1"
+    new_content = "Updated message content."
+
+    mock_dynamodb_table.get_item.return_value = {
+        "Item": {
+            "id_message": message_id,
+            "id_user": test_user.sub,
+            "content": "Original content",
+            "timestamp": "2024-10-07T07:33:21.023112",
+            "is_bot": False,
+        }
+    }
+
+    mock_dynamodb_table.update_item.return_value = {}
+
+    payload = {"content": new_content}
+    response = client.put(
+        f"/messages/{message_id}",
+        headers={"Authorization": "Bearer valid_token"},
+        json=payload,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id_message"] == message_id
+    assert data["content"] == new_content
+
+
 def test_delete_message():
     message_id = "message1"
 
