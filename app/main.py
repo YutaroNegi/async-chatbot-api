@@ -1,7 +1,8 @@
 import logging
 from fastapi import FastAPI
-from app.routers import health, users
 from app import config
+
+from app.routers import health, users, messages
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,3 +23,4 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(health.router)
 app.include_router(users.router)
+app.include_router(messages.router)
