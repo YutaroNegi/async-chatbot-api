@@ -91,3 +91,28 @@ def test_send_message():
         assert "bot_response" in data
         assert data["user_message"]["content"] == payload["content"]
         assert data["bot_response"]["content"] == "This is a bot response."
+
+
+def test_delete_message():
+    message_id = "message1"
+
+    mock_dynamodb_table.get_item.return_value = {
+        "Item": {
+            "id_message": message_id,
+            "id_user": test_user.sub,
+            "content": "Message to be deleted",
+            "timestamp": "2024-10-07T07:33:21.023112",
+            "is_bot": False,
+        }
+    }
+
+    mock_dynamodb_table.delete_item.return_value = {}
+
+    response = client.delete(
+        f"/messages/{message_id}",
+        headers={"Authorization": "Bearer valid_token"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id_message"] == message_id
+    assert data["status"] == "deleted"
