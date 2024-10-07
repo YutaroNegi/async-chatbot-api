@@ -7,18 +7,22 @@ from jose.exceptions import JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import logging
+from app.models.users import User
+from pydantic import ValidationError
 
 logger = logging.getLogger("app.auth")
 security = HTTPBearer()
 
 
-async def get_current_user(token: HTTPAuthorizationCredentials = Depends(security)):
+async def get_current_user(
+    token: HTTPAuthorizationCredentials = Depends(security),
+) -> User:
     logger.info("Authentication attempt initiated.")
-    token = token.credentials
-    logger.debug(f"Received token: {token}")
+    token_str = token.credentials
+    logger.debug(f"Received token: {token_str}")
 
     try:
-        headers = jwt.get_unverified_header(token)
+        headers = jwt.get_unverified_header(token_str)
         logger.debug(f"Token headers: {headers}")
     except JWTError as e:
         logger.error(f"JWTError during header extraction: {str(e)}")
@@ -36,26 +40,20 @@ async def get_current_user(token: HTTPAuthorizationCredentials = Depends(securit
         )
 
     keys = get_public_keys()
-    key_index = None
+    key = next((key for key in keys if key["kid"] == kid), None)
 
-    for i, key in enumerate(keys):
-        if kid == key["kid"]:
-            key_index = i
-            logger.debug(f"Matching key found: {key}")
-            break
-
-    if key_index is None:
+    if not key:
         logger.warning(f"No matching public key found for kid: {kid}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Public key not found in jwks.json",
         )
 
-    public_key = jwk.construct(keys[key_index])
+    public_key = jwk.construct(key)
     logger.debug(f"Public key constructed: {public_key}")
 
     try:
-        message, encoded_signature = str(token).rsplit(".", 1)
+        message, encoded_signature = str(token_str).rsplit(".", 1)
     except ValueError as e:
         logger.error(f"Error splitting token: {str(e)}")
         raise HTTPException(
@@ -82,7 +80,7 @@ async def get_current_user(token: HTTPAuthorizationCredentials = Depends(securit
     logger.info("Signature verification succeeded.")
 
     try:
-        claims = jwt.get_unverified_claims(token)
+        claims = jwt.get_unverified_claims(token_str)
         logger.debug(f"Token claims: {claims}")
     except JWTError as e:
         logger.error(f"JWTError during claims extraction: {str(e)}")
@@ -120,5 +118,14 @@ async def get_current_user(token: HTTPAuthorizationCredentials = Depends(securit
             detail="Invalid client ID",
         )
 
-    logger.info(f"User authenticated successfully: {claims.get('username')}")
-    return claims
+    try:
+        user = User(**claims)
+    except ValidationError as e:
+        logger.error(f"ValidationError when parsing user claims: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid token claims structure.",
+        )
+
+    logger.info(f"User authenticated successfully: {user.username}")
+    return user
