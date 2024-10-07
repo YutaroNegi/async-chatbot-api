@@ -7,12 +7,14 @@ This project sets up the initial structure of a chatbot application using **Fast
 - A health check route (`/health`) to monitor the application's status.
 - **User Registration Endpoint** (`/users/register`) to allow users to create accounts.
 - **User Login Endpoint** (`/users/login`) to enable users to authenticate and receive authentication tokens.
+- **Protected `/messages` Endpoints** (`/messages`) to manage chatbot messages, accessible only to authenticated users.
 
 Additionally, the project has been refactored to enhance maintainability and scalability by:
 
 - **Centralizing Configuration** in a dedicated `config.py` module.
 - **Separating Models** into individual files within the `models` directory.
 - **Organizing Utility Functions** within the `utils` directory.
+- **Implementing Comprehensive Logging** within the authentication process for better monitoring and debugging.
 
 This setup serves as a foundation for developing additional chatbot functionalities such as sending, editing, and deleting messages.
 
@@ -25,6 +27,7 @@ This setup serves as a foundation for developing additional chatbot functionalit
   - Pytest
   - boto3
   - python-dotenv
+  - python-jose
 
 - **Containerization:**
   - Docker
@@ -42,6 +45,7 @@ This setup serves as a foundation for developing additional chatbot functionalit
 async-chatbot-api/
 ├── app/
 │   ├── __init__.py
+│   ├── auth.py
 │   ├── config.py
 │   ├── main.py
 │   ├── models/
@@ -50,14 +54,16 @@ async-chatbot-api/
 │   ├── routers/
 │   │   ├── __init__.py
 │   │   ├── health.py
-│   │   └── users.py
+│   │   ├── users.py
+│   │   └── messages.py
 │   └── utils/
 │       ├── __init__.py
 │       └── auth.py
 ├── tests/
 │   ├── __init__.py
+│   ├── test_auth.py
 │   ├── test_health.py
-│   └── test_users.py
+│   ├── test_users.py
 ├── .pre-commit-config.yaml
 ├── requirements.txt
 ├── Dockerfile
@@ -68,8 +74,9 @@ async-chatbot-api/
 - **app/main.py**: Entry point of the FastAPI application with logging configuration.
 - **app/models/user.py**: Contains Pydantic models for user registration and login.
 - **app/routers/users.py**: Defines the user registration and login endpoints.
+- **app/routers/messages.py**: Defines protected endpoints for managing chatbot messages.
 - **app/routers/health.py**: Defines the `/health` route for health checks.
-- **app/utils/auth.py**: Contains utility functions, including `get_secret_hash` for AWS Cognito.
+- **app/utils/auth.py**: Contains utility functions, including `get_secret_hash` for AWS Cognito and authentication dependencies.
 - **tests/test_users.py**: Unit tests for user registration and login endpoints.
 - **requirements.txt**: Project dependencies.
 - **Dockerfile**: Configuration for containerizing the application.
@@ -109,12 +116,11 @@ Create a `.env` file in the root directory with the following content:
 
 ```env
 COGNITO_USER_POOL_ID=your_user_pool_id
-COGNITO_REGION=your_region
 COGNITO_APP_CLIENT_ID=your_app_client_id
 COGNITO_APP_CLIENT_SECRET=your_app_client_secret
 ```
 
-**Note:** Replace `your_user_pool_id`, `your_app_client_id`, and `your_app_client_secret` with your actual AWS Cognito configurations.
+**Note:** Replace `your_user_pool_id`, `your_app_client_id`, and `your_app_client_secret` with your actual AWS Cognito configurations. Also, ensure that the `COGNITO_ISSUER` matches your Cognito User Pool's issuer URL.
 
 #### 4.2. Secure the `.env` File
 
@@ -176,7 +182,8 @@ The application will be available at [http://localhost:8000](http://localhost:80
       "expires_in": 3600
     }
     ```
-    
+
+
 ## 🧪 Running Tests
 
 Ensure all development dependencies are installed and run:
@@ -184,6 +191,8 @@ Ensure all development dependencies are installed and run:
 ```bash
 pytest tests/
 ```
+
+This command will execute all unit tests for user registration, login, and protected message routes, ensuring the reliability of authentication and authorization mechanisms.
 
 ## 🐳 Containerization with Docker
 
@@ -235,7 +244,6 @@ pre-commit run --all-files
 
 ## 🔧 Next Steps
 
-- **Authentication:** Implement authentication mechanisms to protect routes.
 - **Frontend:** Implement the user interface using **React** and **TypeScript**.
 - **Chatbot Features:**
   - Send messages
