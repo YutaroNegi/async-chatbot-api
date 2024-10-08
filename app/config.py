@@ -10,6 +10,7 @@ COGNITO_APP_CLIENT_SECRET = os.getenv("COGNITO_APP_CLIENT_SECRET")
 COGNITO_KEYS_URL = f"https://cognito-idp.us-east-1.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
 COGNITO_ISSUER = f"https://cognito-idp.us-east-1.amazonaws.com/{COGNITO_USER_POOL_ID}"
 DYNAMO_MESSAGES_TABLE = os.getenv("DYNAMO_MESSAGES_TABLE")
+CORS_ALLOWED_DOMAIN = os.getenv("CORS_ALLOWED_DOMAIN")
 
 required_vars = [
     "COGNITO_USER_POOL_ID",
@@ -18,6 +19,7 @@ required_vars = [
     "COGNITO_KEYS_URL",
     "COGNITO_ISSUER",
     "DYNAMO_MESSAGES_TABLE",
+    "CORS_ALLOWED_DOMAIN",
 ]
 
 for var in required_vars:
