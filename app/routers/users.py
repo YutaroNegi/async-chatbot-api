@@ -146,3 +146,16 @@ async def login_user(user: UserLogin):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         )
+
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+async def logout(response: Response):
+    res = JSONResponse(content={"message": "Logout successful"})
+    res.delete_cookie(key="access_token", path="/")
+    res.delete_cookie(key="refresh_token", path="/")
+    return res
+
+
+@router.get("/me", status_code=status.HTTP_200_OK)
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    return {"user_id": current_user.sub}
