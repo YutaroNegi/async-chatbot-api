@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException, status
-from app.models.users import UserCreate, UserLogin
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse, Response
+from app.models.users import User, UserCreate, UserLogin
 from app.utils.auth import get_secret_hash
+from app.auth import get_current_user
 import os
 import boto3
 from botocore.exceptions import ClientError
@@ -93,13 +95,34 @@ async def login_user(user: UserLogin):
         )
         logger.info(f"User {user.email} authenticated successfully.")
 
-        return {
-            "access_token": response["AuthenticationResult"]["AccessToken"],
-            "id_token": response["AuthenticationResult"]["IdToken"],
-            "refresh_token": response["AuthenticationResult"]["RefreshToken"],
-            "token_type": response["AuthenticationResult"]["TokenType"],
-            "expires_in": response["AuthenticationResult"]["ExpiresIn"],
-        }
+        access_token = response["AuthenticationResult"]["AccessToken"]
+        refresh_token = response["AuthenticationResult"]["RefreshToken"]
+        expires_in = response["AuthenticationResult"]["ExpiresIn"]
+
+        res = JSONResponse(content={"message": "Login successful"})
+
+        res.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,
+            samesite="Lax",
+            max_age=expires_in,
+            expires=expires_in,
+            path="/",
+        )
+        res.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=False,
+            samesite="Lax",
+            max_age=30 * 24 * 60 * 60,
+            expires=30 * 24 * 60 * 60,
+            path="/",
+        )
+
+        return res
 
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
