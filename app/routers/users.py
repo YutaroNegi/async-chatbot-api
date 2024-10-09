@@ -20,6 +20,7 @@ cognito_client = boto3.client("cognito-idp")
 USER_POOL_ID = config.COGNITO_USER_POOL_ID
 CLIENT_ID = config.COGNITO_APP_CLIENT_ID
 CLIENT_SECRET = config.COGNITO_APP_CLIENT_SECRET
+IS_PRODUCTION = config.ENV == "production"
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -105,8 +106,8 @@ async def login_user(user: UserLogin):
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=False,
-            samesite="Lax",
+            secure=IS_PRODUCTION,
+            samesite="None" if IS_PRODUCTION else "Lax",
             max_age=expires_in,
             expires=expires_in,
             path="/",
@@ -115,8 +116,8 @@ async def login_user(user: UserLogin):
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=False,
-            samesite="Lax",
+            secure=IS_PRODUCTION,
+            samesite="None" if IS_PRODUCTION else "Lax",
             max_age=30 * 24 * 60 * 60,
             expires=30 * 24 * 60 * 60,
             path="/",
