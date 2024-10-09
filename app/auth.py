@@ -4,22 +4,25 @@ from app.utils.auth import get_public_keys
 from jose import jwk, jwt
 from jose.utils import base64url_decode
 from jose.exceptions import JWTError
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import HTTPException, status, Request
 import logging
 from app.models.users import User
 from pydantic import ValidationError
 
 logger = logging.getLogger("app.auth")
-security = HTTPBearer()
 
 
-async def get_current_user(
-    token: HTTPAuthorizationCredentials = Depends(security),
-) -> User:
+async def get_current_user(request: Request) -> User:
     logger.info("Authentication attempt initiated.")
-    token_str = token.credentials
-    logger.debug(f"Received token: {token_str}")
+
+    token_str = request.cookies.get("access_token")
+    if not token_str:
+        logger.warning("Access token not found in cookies.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    logger.debug(f"Received token from cookies: {token_str}")
 
     try:
         headers = jwt.get_unverified_header(token_str)
@@ -50,7 +53,7 @@ async def get_current_user(
         )
 
     public_key = jwk.construct(key)
-    logger.debug(f"Public key constructed: {public_key}")
+    logger.debug(f"Public key constructed.")
 
     try:
         message, encoded_signature = str(token_str).rsplit(".", 1)
@@ -63,7 +66,7 @@ async def get_current_user(
 
     try:
         decoded_signature = base64url_decode(encoded_signature.encode("utf-8"))
-        logger.debug(f"Decoded signature: {decoded_signature}")
+        logger.debug(f"Decoded signature obtained.")
     except Exception as e:
         logger.error(f"Error decoding signature: {str(e)}")
         raise HTTPException(
@@ -127,5 +130,5 @@ async def get_current_user(
             detail="Invalid token claims structure.",
         )
 
-    logger.info(f"User authenticated successfully: {user.username}")
+    logger.info("User authenticated successfully")
     return user
