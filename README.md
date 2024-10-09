@@ -6,7 +6,9 @@ This project sets up the initial structure of a chatbot application using **Fast
 
 - A health check route (`/health`) to monitor the application's status.
 - **User Registration Endpoint** (`/users/register`) to allow users to create accounts.
-- **User Login Endpoint** (`/users/login`) to enable users to authenticate and receive authentication tokens.
+- **User Login Endpoint** (`/users/login`) to enable users to authenticate. Authentication tokens are stored securely in HTTP-only cookies.
+- **User Logout Endpoint** (`/users/logout`) to allow users to log out by clearing authentication cookies.
+- **User Info Endpoint** (`/users/me`) to retrieve information about the currently authenticated user.
 - **Protected `/messages` Endpoints** (`/messages`) to manage chatbot messages, accessible only to authenticated users. These endpoints allow users to:
   - **List Messages** (`GET /messages/`): Retrieve a list of messages sent and received.
   - **Send a Message** (`POST /messages/`): Send a new message to the chatbot.
@@ -35,6 +37,10 @@ This setup serves as a foundation for developing additional chatbot functionalit
 
 - **Containerization:**
   - Docker
+
+- **Deployment:**
+  - AWS App Runner
+  - AWS Elastic Container Registry (ECR)
 
 - **Testing:**
   - pytest
@@ -80,11 +86,11 @@ async-chatbot-api/
 - **app/main.py**: Entry point of the FastAPI application with logging configuration.
 - **app/models/users.py**: Contains Pydantic models for user registration and login.
 - **app/models/messages.py**: Contains Pydantic models for message management.
-- **app/routers/users.py**: Defines the user registration and login endpoints.
+- **app/routers/users.py**: Defines the user registration, login, logout, and user info endpoints.
 - **app/routers/messages.py**: Defines protected endpoints for managing chatbot messages (list, send, edit, delete).
 - **app/routers/health.py**: Defines the `/health` route for health checks.
 - **app/utils/auth.py**: Contains utility functions, including `get_secret_hash` for AWS Cognito and authentication dependencies.
-- **tests/test_users.py**: Unit tests for user registration and login endpoints.
+- **tests/test_users.py**: Unit tests for user registration, login, logout, and user info endpoints.
 - **tests/test_messages.py**: Unit tests for message management endpoints.
 - **requirements.txt**: Project dependencies.
 - **Dockerfile**: Configuration for containerizing the application.
@@ -133,7 +139,6 @@ AWS_ACCESS_KEY_ID=your_access_key_id
 AWS_SECRET_ACCESS_KEY=your_secret_access_key
 ```
 
-
 #### 4.2. Secure the `.env` File
 
 Ensure that the `.env` file is **not** committed to version control by keeping it listed in `.gitignore`.
@@ -154,7 +159,7 @@ uvicorn app.main:app --reload
 
 The application will be available at [http://localhost:8000](http://localhost:8000).
 
-### 7. Testing User Registration, Login, and Message Management
+### 7. Testing User Registration, Login, Logout, and Message Management
 
 - **User Registration:**
   - **Endpoint:** `POST /users/register`
@@ -187,20 +192,31 @@ The application will be available at [http://localhost:8000](http://localhost:80
   - **Response:**
     ```json
     {
-      "access_token": "eyJraWQiOiJhb...",
-      "id_token": "eyJraWQiOiJhb...",
-      "refresh_token": "eyJjdHkiOi...",
-      "token_type": "Bearer",
-      "expires_in": 3600
+      "message": "Login successful"
+    }
+    ```
+  - **Note:** Tokens are now stored in HTTP-only cookies. They are **not** returned in the response body for enhanced security.
+
+- **User Logout:**
+  - **Endpoint:** `POST /users/logout`
+  - **Response:**
+    ```json
+    {
+      "message": "Logout successful"
+    }
+    ```
+
+- **Get Current User:**
+  - **Endpoint:** `GET /users/me`
+  - **Response:**
+    ```json
+    {
+      "email": "newuser@example.com"
     }
     ```
 
 - **List Messages:**
   - **Endpoint:** `GET /messages/`
-  - **Headers:** `Authorization: Bearer <access_token>`
-  - **Query Parameters:**
-    - `limit` (optional): Max number of messages to return (default 50, max 100).
-    - `last_evaluated_key` (optional): Key for pagination.
   - **Response:**
     ```json
     {
@@ -226,7 +242,6 @@ The application will be available at [http://localhost:8000](http://localhost:80
 
 - **Send a Message:**
   - **Endpoint:** `POST /messages/`
-  - **Headers:** `Authorization: Bearer <access_token>`
   - **Payload:**
     ```json
     {
@@ -255,7 +270,6 @@ The application will be available at [http://localhost:8000](http://localhost:80
 
 - **Edit a Message:**
   - **Endpoint:** `PUT /messages/{id_message}`
-  - **Headers:** `Authorization: Bearer <access_token>`
   - **Payload:**
     ```json
     {
@@ -272,7 +286,6 @@ The application will be available at [http://localhost:8000](http://localhost:80
 
 - **Delete a Message:**
   - **Endpoint:** `DELETE /messages/{id_message}`
-  - **Headers:** `Authorization: Bearer <access_token>`
   - **Response:**
     ```json
     {
@@ -308,7 +321,6 @@ This command will execute all unit tests for user registration, login, and prote
   - Editing an existing message.
   - Deleting a message.
 
-
 ## 🐳 Containerization with Docker
 
 ### 1. Build the Docker Image
@@ -324,6 +336,55 @@ docker run -d --name async-chatbot-api-container -p 8000:8000 --env-file .env as
 ```
 
 The application will be accessible at [http://localhost:8000](http://localhost:8000).
+
+## 🔧 Deployment with AWS App Runner and ECR
+
+### 1. Push Docker Image to AWS ECR
+
+Ensure you have an AWS account and have configured the AWS CLI with appropriate permissions.
+
+#### 1.1. Create an ECR Repository
+
+```bash
+aws ecr create-repository --repository-name async-chatbot-api --region your-region
+```
+
+#### 1.2. Authenticate Docker to Your ECR Repository
+
+```bash
+aws ecr get-login-password --region your-region | docker login --username AWS --password-stdin your-account-id.dkr.ecr.your-region.amazonaws.com
+```
+
+#### 1.3. Tag Your Docker Image
+
+```bash
+docker tag async-chatbot-api:latest your-account-id.dkr.ecr.your-region.amazonaws.com/async-chatbot-api:latest
+```
+
+#### 1.4. Push the Image to ECR
+
+```bash
+docker push your-account-id.dkr.ecr.your-region.amazonaws.com/async-chatbot-api:latest
+```
+
+### 2. Deploy with AWS App Runner
+
+#### 2.1. Create an App Runner Service
+
+Navigate to the AWS App Runner console and create a new service:
+
+1. **Source**: Select "Container registry" and choose "Amazon ECR".
+2. **Repository**: Select your `async-chatbot-api` repository and the `latest` tag.
+3. **Service Settings**: Configure the service name, CPU, memory, and other settings as needed.
+4. **Environment Variables**: Set the required environment variables as defined in your `.env` file.
+5. **Networking**: Configure VPC, subnets, and security groups as necessary.
+6. **Deployment**: Review and create the service.
+
+The service will be deployed and accessible via the provided App Runner URL.
+
+#### 2.2. Update Environment Variables
+
+Ensure all necessary environment variables are set in the App Runner console under the service settings. These should mirror those in your local `.env` file but should be securely managed within AWS.
 
 
 ## 📑 Code Formatting and Linting
@@ -357,7 +418,6 @@ Pre-commit hooks run automatically on `git commit`. To manually run all hooks ag
 ```bash
 pre-commit run --all-files
 ```
-
 
 ## 🛠️ Running Tests with Mocks
 
@@ -379,70 +439,12 @@ Execute all tests within the `tests/` directory:
 pytest tests/
 ```
 
-## 🐳 Containerization with Docker
-
-### 1. Build the Docker Image
-
-```bash
-docker build -t async-chatbot-api .
-```
-
-### 2. Run the Docker Container
-
-```bash
-docker run -d --name async-chatbot-api-container -p 8000:8000 --env-file .env async-chatbot-api
-```
-
-The application will be accessible at [http://localhost:8000](http://localhost:8000).
-
-
-## 📑 Code Formatting and Linting
-
-### Code Formatting with Black
-
-This project uses [Black](https://github.com/psf/black) to ensure consistent code style.
-
-#### Usage
-
-Format all Python code in the project:
-
-```bash
-black app/ tests/
-```
-
-### Pre-Commit Hooks
-
-[pre-commit](https://pre-commit.com/) is used to automatically run linting and formatting checks before each commit, ensuring code quality and consistency.
-
-#### Installation
-
-```bash
-pre-commit install
-```
-
-#### Usage
-
-Pre-commit hooks run automatically on `git commit`. To manually run all hooks against all files:
-
-```bash
-pre-commit run --all-files
-```
-
 ## 📝 **Notes**
 
 - **Development Environment:** It's recommended to use a virtual environment to isolate project dependencies.
 - **Docker:** Ensure Docker is installed on your machine to utilize containerization features.
 - **Endpoint Testing:** Use tools like **Postman** or **cURL** to test API endpoints.
-- **Security:** Never commit sensitive information such as AWS credentials or Cognito secrets. Always use environment variables and ensure `.env` is listed in `.gitignore`.
-
-## 🔧 Next Steps
-
-- **Frontend:** Implement the user interface using **React** and **TypeScript**.
-- **Chatbot Features:**
-  - Send messages
-  - Edit messages
-  - Delete messages
-- **Chatbot Logic:** Develop the chatbot logic to respond to user messages.
-- **Data Persistence:** Add a persistence layer (e.g., database) to store messages.
-- **Automated Testing:** Add more tests to cover new functionalities.
-- **Deployment:** Configure continuous deployment using platforms like AWS Elastic Beanstalk.
+- **Security:**
+  - Never commit sensitive information such as AWS credentials or Cognito secrets. Always use environment variables and ensure `.env` is listed in `.gitignore`.
+  - In production, set `secure=True` for cookies to enforce HTTPS.
+  - Consider implementing CSRF protection mechanisms since cookies are used for authentication.
