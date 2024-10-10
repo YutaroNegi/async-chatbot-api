@@ -448,3 +448,9 @@ pytest tests/
   - Never commit sensitive information such as AWS credentials or Cognito secrets. Always use environment variables and ensure `.env` is listed in `.gitignore`.
   - In production, set `secure=True` for cookies to enforce HTTPS.
   - Consider implementing CSRF protection mechanisms since cookies are used for authentication.
+
+## System Design
+
+Below is the system design diagram for this project:
+
+![System Design](./system-design.png)
